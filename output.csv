@@ -1,0 +1,5 @@
+timestamp,thread,log_level,content_id,session_id,customer_id,channel,component,message
+"2025-01-08 12:51:15,406",org.springframewrok.kafka.Kafkalistner#5-0-B-1,INFO,Content-Id:abc23h,Session-Id:,CustomerId:123,Channel:ABC,c.b.a.HacCustomer,"SmsServiceImp|createdata reciept 123456, SMS type HAC_YFV_SUCESS"
+"2025-01-08 12:51:15,406",org.springframewrok.kafka.Kafkalistner#5-0-B-1,INFO,Content-Id:abc23h,Session-Id:,CustomerId:123,Channel:ABC,c.b.a.HacCustomer,"SMS Request{ ""communicationlist"":[ { ""type"":""SMS"", ""landID"":""123"", ""RefNo"":""HAV27266BSH"", ""datamodel"":[ { ""key"":""name"", ""val"":""abc dbc"" } ], ""code"":""HHAC_YFV_SUCESS"", ""recipeint"":[ ""12345678"" ], ""Subject"":""SMS"", ""required"":false, ""index"":1, } ] }"
+"2025-01-08 12:51:15,418",org.springframewrok.kafka.Kafkalistner#5-0-B-1,INFO,Content-Id:abc23h,Session-Id:,CustomerId:123,Channel:ABC,c.a.w.SMSSICust,Sent sms to :9823673627 for SMS type HAV27266BSH_HASH
+"2025-01-08 12:51:16,418",org.springframewrok.kafka.Kafkalistner#5-0-B-1,INFO,Content-Id:abc23h,Session-Id:,CustomerId:123,Channel:ABC,c.a.h.r.PIMSSICust,Audit data is loged
