@@ -1,0 +1,101 @@
+import re
+import pandas as pd
+
+# Regular expression pattern to identify the timestamp at the beginning of a log entry.
+timestamp_pattern = re.compile(r'^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2},\d+')
+
+# Regex pattern to parse each log entry into its parts:
+# - timestamp
+# - thread/component identifier
+# - log level
+# - contextual metadata: Content-Id, Session-Id, CustomerId, Channel
+# - component/class identifier
+# - log message (including any embedded JSON)
+log_pattern = re.compile(
+    r'^(?P<timestamp>\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2},\d+)\s+'
+    r'\[(?P<thread>[^\]]+)\]\s+'
+    r'\[(?P<log_level>[^\]]+)\]\s+'
+    r'\[(?P<content_id>[^\]]+)\]\s+'
+    r'\[(?P<session_id>[^\]]+)\]\s+'
+    r'\[(?P<customer_id>[^\]]+)\]\s+'
+    r'\[(?P<channel>[^\]]+)\]\s+'
+    r'\[(?P<component>[^\]]+)\]\s+-\s+'
+    r'(?P<message>.*)$'
+)
+
+def process_log_file(input_file):
+    """
+    Reads the log file, ensuring that each new log entry starts with a timestamp.
+    If a line does not start with a timestamp, it is assumed to be a continuation of the previous entry.
+    Returns a list of complete log entries.
+    """
+    try:
+        # Specify the encoding and error handling in case of encoding issues.
+        with open(input_file, 'r', encoding='utf-8', errors='replace') as f:
+            lines = f.readlines()
+    except Exception as e:
+        print(f"Error reading file {input_file}: {e}")
+        return []
+    
+    entries = []
+    current_entry = ""
+    for line in lines:
+        # If the line starts with a timestamp, start a new entry.
+        if timestamp_pattern.match(line):
+            if current_entry:
+                entries.append(current_entry.strip())
+            current_entry = line.strip()
+        else:
+            # Continuation of a multi-line log entry.
+            current_entry += " " + line.strip()
+    if current_entry:
+        entries.append(current_entry.strip())
+    
+    return entries
+
+def parse_log_entries(entries):
+    """
+    Uses the regex pattern to extract fields from each log entry.
+    Returns a list of dictionaries where each dictionary represents one log entry.
+    """
+    data = []
+    for entry in entries:
+        match = log_pattern.match(entry)
+        if match:
+            data.append(match.groupdict())
+        else:
+            print("Warning: Could not parse log entry:")
+            print(entry)
+    return data
+
+def main():
+    # Define input and output file names.
+    input_file = "logs.txt"   # Make sure this file exists in the directory.
+    csv_file = "output.csv"
+    excel_file = "output.xlsx"
+    
+    # Process and parse the log file.
+    entries = process_log_file(input_file)
+    if not entries:
+        print("No log entries processed. Please check your input file.")
+        return
+
+    log_data = parse_log_entries(entries)
+    
+    # Create a pandas DataFrame from the parsed log data.
+    df = pd.DataFrame(log_data, columns=[
+        'timestamp', 'thread', 'log_level', 
+        'content_id', 'session_id', 'customer_id', 'channel', 
+        'component', 'message'
+    ])
+    
+    # Write DataFrame to CSV.
+    df.to_csv(csv_file, index=False)
+    print(f"CSV file created: {csv_file}")
+    
+    # Write DataFrame to Excel.
+    df.to_excel(excel_file, index=False)
+    print(f"Excel file created: {excel_file}")
+
+if __name__ == "__main__":
+    main()
