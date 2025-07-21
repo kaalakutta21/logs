@@ -1,95 +1,74 @@
 import pandas as pd
 import re
-import sys
 
 input_file = "ascii_table.txt"
 output_file = "vulnerability_report.xlsx"
 
-def read_table_lines(file_path):
-    try:
-        with open(file_path, "r", encoding="utf-8") as f:
-            lines = f.readlines()
-    except Exception as e:
-        print(f"❌ Error reading file: {e}")
-        sys.exit(1)
+def is_probably_table_line(line):
+    # Accept lines with multiple columns separated by | OR 2+ spaces OR tabs
+    line = line.strip()
+    return (
+        ('|' in line and not re.fullmatch(r'[\s\|\+\-]+', line)) or
+        ('\t' in line) or
+        (len(re.split(r'\s{2,}', line)) >= 3)  # 2+ spaces
+    )
 
-    table_lines = []
-    for i, line in enumerate(lines):
-        if "|" in line and not re.fullmatch(r'[\s\|\+\-]+', line.strip()):
-            table_lines.append(line.strip('\n'))
+def read_table_lines(file_path):
+    with open(file_path, "r", encoding="utf-8") as f:
+        lines = f.readlines()
+
+    table_lines = [line.strip() for line in lines if is_probably_table_line(line)]
+    
     if not table_lines:
-        print("⚠️ No usable table rows found — check if the file contains valid '|'-based table data.")
-        sys.exit(1)
+        print("❌ Still no usable table lines found.")
+        return []
+
+    print(f"✅ Found {len(table_lines)} possible table rows.")
     return table_lines
 
-def parse_table(table_lines):
+def split_columns(line):
+    if '|' in line:
+        return [c.strip() for c in line.split('|') if c.strip()]
+    elif '\t' in line:
+        return [c.strip() for c in line.split('\t') if c.strip()]
+    else:
+        return [c.strip() for c in re.split(r'\s{2,}', line) if c.strip()]
+
+def parse_table(lines):
     headers = []
     data_rows = []
     current_row = []
 
-    for idx, line in enumerate(table_lines):
-        cols = [c.strip() for c in line.split('|')]
-        cleaned_cols = [c for c in cols if c != '']
+    for line in lines:
+        cols = split_columns(line)
 
         if not headers:
-            headers = cleaned_cols
-            print(f"✅ Detected Headers: {headers}")
+            headers = cols
+            print(f"✅ Headers: {headers}")
             continue
 
-        if len(cleaned_cols) == 0:
-            print(f"⚠️ Skipping empty data row at line {idx+1}")
-            continue
-
-        if len(cleaned_cols) < len(headers):
-            if not current_row:
-                print(f"⚠️ Found continuation line at {idx+1}, but no current row to merge into.")
-                continue
-            for i in range(len(cleaned_cols)):
-                if cleaned_cols[i]:
-                    current_row[i] += f", {cleaned_cols[i]}"
+        if len(cols) < len(headers):
+            for i in range(len(cols)):
+                current_row[i] += f", {cols[i]}"
         else:
             if current_row:
                 data_rows.append(current_row)
-            current_row = cleaned_cols
+            current_row = cols
 
     if current_row:
         data_rows.append(current_row)
 
-    if not data_rows:
-        print("⚠️ No data rows parsed. Please check table formatting.")
-        sys.exit(1)
-
-    print(f"✅ Parsed {len(data_rows)} data rows.")
     return headers, data_rows
 
-def normalize_rows(rows, num_columns):
-    normalized = []
-    for i, row in enumerate(rows):
-        if len(row) < num_columns:
-            print(f"⚠️ Row {i+1} has {len(row)} columns. Padding with blanks.")
-            row += [""] * (num_columns - len(row))
-        elif len(row) > num_columns:
-            print(f"⚠️ Row {i+1} has too many columns. Truncating.")
-            row = row[:num_columns]
-        normalized.append(row)
-    return normalized
+lines = read_table_lines(input_file)
+if not lines:
+    exit()
 
-# === Main Execution ===
-try:
-    print("📥 Reading and parsing table...")
-    lines = read_table_lines(input_file)
-    headers, rows = parse_table(lines)
-    rows = normalize_rows(rows, len(headers))
+headers, rows = parse_table(lines)
+rows = [row + [""] * (len(headers) - len(row)) for row in rows]
 
-    print("📊 Writing to Excel...")
-    df = pd.DataFrame(rows, columns=headers)
-    df.to_excel(output_file, index=False)
-    print(f"✅ Done! Excel file saved as: {output_file}")
+df = pd.DataFrame(rows, columns=headers)
+df.to_excel(output_file, index=False)
 
-    # Optional: show sample
-    print("\n🧾 Sample Output:")
-    print(df.head())
-
-except Exception as e:
-    print(f"❌ Unexpected error: {e}")
-    sys.exit(1)
+print(f"\n✅ Excel file saved: {output_file}")
+print(df.head())
