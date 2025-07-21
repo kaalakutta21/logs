@@ -1,0 +1,56 @@
+import pandas as pd
+import re
+
+input_file = "ascii_table.txt"
+output_file = "vulnerability_report.xlsx"
+
+def is_valid_data_line(line):
+    return (
+        '|' in line
+        and not re.fullmatch(r'[\s\-\+\|]+', line.strip())
+    )
+
+def extract_table_lines(filename):
+    with open(filename, 'r', encoding='utf-8') as f:
+        lines = f.readlines()
+    return [line for line in lines if is_valid_data_line(line)]
+
+def parse_table(lines):
+    headers = []
+    data_rows = []
+    current_row = []
+
+    for line in lines:
+        columns = [col.strip() for col in line.strip().split('|') if col.strip()]
+        
+        if not headers:
+            headers = columns
+            continue
+
+        # Determine if it's a continuation of previous row (most left columns are blank)
+        if columns and len(columns) < len(headers):
+            # It's a continuation: extend non-empty columns into current_row
+            for i in range(len(columns)):
+                if columns[i]:
+                    current_row[i + (len(headers) - len(columns))] += f", {columns[i]}"
+        else:
+            # Save last full row and start new one
+            if current_row:
+                data_rows.append(current_row)
+            current_row = columns
+
+    # Don't forget to add the last row
+    if current_row:
+        data_rows.append(current_row)
+
+    return headers, data_rows
+
+# Run parsing
+lines = extract_table_lines(input_file)
+headers, rows = parse_table(lines)
+
+# Write to Excel
+df = pd.DataFrame(rows, columns=headers)
+df.to_excel(output_file, index=False)
+
+print(f"✅ Saved to: {output_file}")
