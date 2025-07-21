@@ -1,0 +1,47 @@
+import pandas as pd
+import re
+
+input_file = "ascii_table.txt"
+output_file = "vulnerability_report.xlsx"
+
+def is_border(line):
+    # Lines that are only made of border characters
+    return bool(re.fullmatch(r'[\s\|\+\-\=]+', line.strip()))
+
+def parse_ascii_table(filename):
+    with open(filename, 'r', encoding='utf-8') as f:
+        lines = [line.rstrip('\n') for line in f if '|' in line and not is_border(line)]
+
+    # Extract column positions by first line with pipes
+    headers = []
+    data = []
+    current_row = []
+
+    for i, line in enumerate(lines):
+        parts = [part.strip() for part in line.split('|')]
+        parts = [p for p in parts if p != '']  # remove empty cells
+
+        if not headers:
+            headers = parts
+            continue
+
+        # If this row is clearly shorter (i.e., continuation of previous), merge
+        if len(parts) < len(headers):
+            for idx, val in enumerate(parts):
+                if val and idx < len(current_row):
+                    current_row[idx] += f", {val}"
+        else:
+            if current_row:
+                data.append(current_row)
+            current_row = parts
+
+    if current_row:
+        data.append(current_row)
+
+    return headers, data
+
+# Extract and write
+headers, rows = parse_ascii_table(input_file)
+df = pd.DataFrame(rows, columns=headers)
+df.to_excel(output_file, index=False)
+print(f"✅ Excel saved as: {output_file}")
