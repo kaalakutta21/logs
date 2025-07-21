@@ -1,47 +1,62 @@
 import pandas as pd
 import re
 
+# === CONFIG ===
 input_file = "ascii_table.txt"
 output_file = "vulnerability_report.xlsx"
 
-def is_border(line):
-    # Lines that are only made of border characters
-    return bool(re.fullmatch(r'[\s\|\+\-\=]+', line.strip()))
+# === STEP 1: Read Lines and Filter Table Rows ===
+def read_table_lines(file_path):
+    with open(file_path, "r", encoding="utf-8") as f:
+        lines = f.readlines()
 
-def parse_ascii_table(filename):
-    with open(filename, 'r', encoding='utf-8') as f:
-        lines = [line.rstrip('\n') for line in f if '|' in line and not is_border(line)]
+    table_lines = []
+    for line in lines:
+        if "|" in line and not re.fullmatch(r'[\s\|\+\-]+', line.strip()):
+            table_lines.append(line.strip('\n'))
 
-    # Extract column positions by first line with pipes
+    return table_lines
+
+# === STEP 2: Parse Clean Columns and Handle Multi-Line Rows ===
+def parse_table(table_lines):
     headers = []
-    data = []
+    data_rows = []
     current_row = []
 
-    for i, line in enumerate(lines):
-        parts = [part.strip() for part in line.split('|')]
-        parts = [p for p in parts if p != '']  # remove empty cells
+    for line in table_lines:
+        # Extract all columns between pipes
+        cols = [c.strip() for c in line.split('|')]
 
+        # First valid row is the header
         if not headers:
-            headers = parts
+            headers = [h for h in cols if h]
             continue
 
-        # If this row is clearly shorter (i.e., continuation of previous), merge
-        if len(parts) < len(headers):
-            for idx, val in enumerate(parts):
-                if val and idx < len(current_row):
-                    current_row[idx] += f", {val}"
+        # If number of columns is less than headers, treat it as continuation
+        cleaned_cols = [c for c in cols if c != '']
+        if len(cleaned_cols) < len(headers):
+            for i in range(len(cleaned_cols)):
+                if cleaned_cols[i]:
+                    current_row[i] += f", {cleaned_cols[i]}"
         else:
             if current_row:
-                data.append(current_row)
-            current_row = parts
+                data_rows.append(current_row)
+            current_row = cleaned_cols
 
     if current_row:
-        data.append(current_row)
+        data_rows.append(current_row)
 
-    return headers, data
+    return headers, data_rows
 
-# Extract and write
-headers, rows = parse_ascii_table(input_file)
-df = pd.DataFrame(rows, columns=headers)
+# === STEP 3: Run Everything ===
+lines = read_table_lines(input_file)
+headers, rows = parse_table(lines)
+
+# Normalize rows (pad missing columns)
+max_cols = len(headers)
+normalized_rows = [row + [""] * (max_cols - len(row)) for row in rows]
+
+# === STEP 4: Write to Excel ===
+df = pd.DataFrame(normalized_rows, columns=headers)
 df.to_excel(output_file, index=False)
-print(f"✅ Excel saved as: {output_file}")
+print(f"\n✅ DONE! File saved as: {output_file}")
